@@ -3,41 +3,45 @@ const cors = require('cors');
 
 const app = express();
 
-// Enable CORS so your app/APK can communicate with this server
+// Enable CORS so your mobile APK / browser app can reach this backend
 app.use(cors());
 app.use(express.json());
 
 // Proxy endpoint for querying Notion databases
 app.post('/api/notion/query', async (req, res) => {
-const { apiKey, databaseId, startCursor } = req.body;
+  const { apiKey, databaseId, startCursor } = req.body;
 
-if (!apiKey || !databaseId) {
-return res.status(400).json({ error: 'Missing apiKey or databaseId' });
-}
+  if (!apiKey || !databaseId) {
+    return res.status(400).json({ error: 'Missing apiKey or databaseId parameter' });
+  }
 
-try {
-const notionResponse = await fetch(
-https://api.notion.com/v1/databases/${databaseId}/query, { method: 'POST', headers: { 'Authorization':Bearer ${apiKey},
-'Notion-Version': '2025-09-03',
-'Content-Type': 'application/json',
-},
-body: JSON.stringify(startCursor ? { start_cursor: startCursor } : {}),
-}
-);
+  try {
+    const notionUrl = 'https://api.notion.com/v1/databases/' + databaseId + '/query';
+    const authHeader = 'Bearer ' + apiKey;
 
-const data = await notionResponse.json();
-return res.status(notionResponse.status).json(data);
-} catch (err) {
-console.error('Notion Proxy Error:', err);
-return res.status(500).json({ error: err.message });
-}
+    const response = await fetch(notionUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Notion-Version': '2025-09-03',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(startCursor ? { start_cursor: startCursor } : {})
+    });
+
+    const data = await response.json();
+    return res.status(response.status).json(data);
+  } catch (err) {
+    console.error('Notion Proxy Request Failed:', err);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
-// Health check endpoint
+// Health check route
 app.get('/', (req, res) => {
-res.send('eFootball Notion Sync Proxy is Running!');
+  res.send('eFootball Notion Proxy Server is Active!');
 });
 
-// Render automatically injects the PORT environment variable
+// Bind to Render environment PORT
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(Proxy running on port ${PORT}));
+app.listen(PORT, () => console.log('Server is running on port ' + PORT));
