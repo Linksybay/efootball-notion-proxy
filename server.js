@@ -16,20 +16,22 @@ app.post('/api/notion/query', async (req, res) => {
       });
     }
 
-    // Clean Database ID (removes hyphens, spaces, and URL paths)
+    // Clean Database ID (removes hyphens, spaces, and URL parameters)
     let cleanDbId = databaseId.trim();
     if (cleanDbId.includes('?')) cleanDbId = cleanDbId.split('?')[0];
     if (cleanDbId.includes('/')) cleanDbId = cleanDbId.split('/').pop();
     cleanDbId = cleanDbId.replace(/-/g, '');
 
+    // Format query payload
     const requestBody = {};
     if (startCursor) {
       requestBody.start_cursor = startCursor;
     }
 
-    // Attempt standard database query (Legacy compatibility header)
-    let notionUrl = `https://api.notion.com/v1/databases/${cleanDbId}/query`;
-    let response = await fetch(notionUrl, {
+    // Target Notion's core database query endpoint
+    const notionUrl = `https://api.notion.com/v1/databases/${cleanDbId}/query`;
+
+    const response = await fetch(notionUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey.trim()}`,
@@ -39,31 +41,12 @@ app.post('/api/notion/query', async (req, res) => {
       body: JSON.stringify(requestBody)
     });
 
-    let data = await response.json();
-
-    // Fallback: If 404 or multi-source database, query as Data Source (API 2025-09-03)
-    if (response.status === 404 || (data.code && data.code.includes('data_source'))) {
-      const dsUrl = `https://api.notion.com/v1/data_sources/${cleanDbId}/query`;
-      const dsResponse = await fetch(dsUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey.trim()}`,
-          'Notion-Version': '2025-09-03',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (dsResponse.ok) {
-        data = await dsResponse.json();
-        return res.json(data);
-      }
-    }
+    const data = await response.json();
 
     if (!response.ok) {
-      console.error('Notion API Rejected Request:', data);
+      console.error('Notion API Error:', data);
       return res.status(response.status).json({
-        error: data.message || 'Notion API request failed',
+        error: data.message || 'Notion API request rejected',
         code: data.code || 'notion_error'
       });
     }
@@ -71,14 +54,14 @@ app.post('/api/notion/query', async (req, res) => {
     return res.json(data);
 
   } catch (err) {
-    console.error('Proxy Internal Error:', err);
+    console.error('Proxy Server Error:', err);
     return res.status(500).json({ error: err.message || 'Internal proxy server error' });
   }
 });
 
 app.get('/', (req, res) => {
-  res.send('eFootball Notion Sync Proxy is Active!');
+  res.send('eFootball Notion Sync Proxy is active!');
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`Proxy listening on port ${PORT}`));
